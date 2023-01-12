@@ -126,6 +126,7 @@ typedef struct {
 	unsigned int tags;
 	int isfloating, isurgent, isfullscreen;
 	uint32_t resize; /* configure serial of a pending resize */
+	const char *buffer_name;
 } Client;
 
 typedef struct {
