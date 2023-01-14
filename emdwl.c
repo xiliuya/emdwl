@@ -10,8 +10,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wayland-server-core.h>
+
+void
+msleep (int tms)
+{
+  struct timeval tv;
+  tv.tv_sec = tms / 1000;
+  tv.tv_usec = (tms % 1000) * 1000;
+  select (0, NULL, NULL, NULL, &tv);
+}
 
 /* Declare mandatory GPL symbol.  */
 int plugin_is_GPL_compatible;
@@ -162,29 +173,54 @@ emdwl_newbuffer (emacs_env *env, const char *name)
 }
 
 /* Find client with buffer_name */
+
+/* Client * */
+/* emdwl_find_client (const char *buffer_name) */
+/* { */
+
+/*   Client *c; */
+/*   wl_list_for_each (c, &fstack, flink) */
+/*   { */
+/*     if (c->buffer_name != NULL && strcmp (c->buffer_name, buffer_name) == 0) */
+/*       { */
+/*         printf ("buffer_name: %s\n", c->buffer_name); */
+/*         fflush (stdout); */
+/*         return c; */
+/*       } */
+/*   } */
+/*   return NULL; */
+/* } */
+
+/* Find client with client_id */
 Client *
-emdwl_find_client (const char *buffer_name)
+emdwl_find_client_with_id (int id)
 {
 
   Client *c;
+
+  if (id == 0)
+    {
+      return NULL;
+    }
+
   wl_list_for_each (c, &fstack, flink)
   {
-    if (c->buffer_name != NULL && strcmp (c->buffer_name, buffer_name) == 0)
+    if (c->client_id != 0 && c->client_id == id)
       {
-        printf ("buffer_name: %s\n", c->buffer_name);
+        printf ("client_id: %u\n", c->client_id);
         fflush (stdout);
         return c;
       }
   }
   return NULL;
 }
-
 /* Close client */
 int
-emdwl_close_client (const char *buffer_name)
+emdwl_close_client (int id)
 {
   Client *c;
-  c = emdwl_find_client (buffer_name);
+  /* c = emdwl_find_client (buffer_name); */
+  c = emdwl_find_client_with_id (id);
   if (c == NULL)
     {
       return 0;
@@ -193,12 +229,92 @@ emdwl_close_client (const char *buffer_name)
   return 1;
 }
 
+int
+emdwl_open_client (const char *run_cmd)
+{
+  /* Client *c; */
+  int read_id = 0;
+  int pid;
+  int piperw[2];
+  int old_client_id;
+  int i = 100;
+  old_client_id = client_id;
+  if (child_pid < 0)
+    {
+      if (pipe (piperw) < 0)
+        die ("startup: pipe:");
+      if ((child_pid = fork ()) < 0)
+        die ("startup: fork:");
+      if (child_pid == 0)
+        {
+          dup2 (piperw[0], STDIN_FILENO);
+          close (piperw[0]);
+          close (piperw[1]);
+          execl ("/bin/sh", "/bin/sh", "-c", run_cmd, NULL);
+          read_id = 0;
+          die ("startup: execl:");
+        }
+      else
+        {
+          /* Read client_id in pipe */
+          printf ("client_id is:%d\n", read_id);
+          fflush (stdout);
+        }
+      /* dup2 (piperw[1], STDOUT_FILENO); */
+      /* close (piperw[1]); */
+      /* close (piperw[0]); */
+    }
+  else
+    {
+      /* const char *buffer_name = extract_string (env, args[1]); */
+      pid = fork ();
+      if (pid < 0)
+        {
+          die ("open: fork:");
+        }
+      else if (pid == 0)
+        {
+          printf ("Run emdwl_open \n");
+          execl ("/bin/sh", "/bin/sh", "-c", run_cmd, NULL);
+          read_id = 0;
+          exit (0);
+        }
+      else
+        {
+          /* Read client_id in pipe */
+          read_id = 0;
+          while (i--)
+            {
+              if (old_client_id == client_id)
+                read_id = old_client_id;
+              msleep (10);
+            }
+          printf ("client_id is:%d\n", read_id);
+          fflush (stdout);
+        }
+    }
+  signal (SIGPIPE, SIG_IGN);
+  printf ("emdwl_open read pipe\n");
+  /* read_id = 10000; */
+
+  /* /\* Read client_id in pipe *\/ */
+  /* close (dwl_pipe[1]); */
+  /* read (dwl_pipe[0], msg, 2); */
+  /* read_id = msg[1]; */
+  /* read_id = read_id << 8; */
+  /* read_id += msg[0]; */
+  /* printf ("client_id is:%d\n", read_id); */
+  /* fflush (stdout); */
+  /* close (dwl_pipe[0]); */
+  return read_id;
+}
+
 void
 print_pid (Client *c)
 {
   int pid;
   wl_client_get_credentials (c->surface.xdg->client->client, &pid, NULL, NULL);
-  printf ("pid id: %d c->pid: %d\n", pid, c->pid);
+  printf ("pid id: %d c->client: %d\n", pid, c->client_id);
 }
 void *
 my_run (void *startup_cmd)
@@ -218,22 +334,23 @@ my_run (void *startup_cmd)
    * command */
   if (startup_cmd)
     {
-      int piperw[2];
-      if (pipe (piperw) < 0)
-        die ("startup: pipe:");
-      if ((child_pid = fork ()) < 0)
-        die ("startup: fork:");
-      if (child_pid == 0)
-        {
-          dup2 (piperw[0], STDIN_FILENO);
-          close (piperw[0]);
-          close (piperw[1]);
-          execl ("/bin/sh", "/bin/sh", "-c", startup_cmd, NULL);
-          die ("startup: execl:");
-        }
-      /* dup2(piperw[1], STDOUT_FILENO); */
-      /* close(piperw[1]); */
-      /* close(piperw[0]); */
+      /* int piperw[2]; */
+      /* if (pipe (piperw) < 0) */
+      /*   die ("startup: pipe:"); */
+      /* if ((child_pid = fork ()) < 0) */
+      /*   die ("startup: fork:"); */
+      /* if (child_pid == 0) */
+      /*   { */
+      /*     dup2 (piperw[0], STDIN_FILENO); */
+      /*     close (piperw[0]); */
+      /*     close (piperw[1]); */
+      /*     execl ("/bin/sh", "/bin/sh", "-c", startup_cmd, NULL); */
+      /*     die ("startup: execl:"); */
+      /*   } */
+      /* /\* dup2(piperw[1], STDOUT_FILENO); *\/ */
+      /* /\* close(piperw[1]); *\/ */
+      /* /\* close(piperw[0]); *\/ */
+      emdwl_open_client ("alacritty");
     }
   /* If nobody is reading the status output, don't terminate */
   /* signal(SIGPIPE, SIG_IGN); */
@@ -255,7 +372,7 @@ my_run (void *startup_cmd)
    * loop configuration to listen to libinput events, DRM events, generate
    * frame events at the refresh rate, and so on. */
   wl_display_run (dpy);
-  pthread_exit (0);
+  /* pthread_exit (0); */
   return 0;
 }
 /* New emacs lisp function. All function exposed to Emacs must have this
@@ -315,10 +432,10 @@ Femdwl_list (emacs_env *env, long int nargs, emacs_value args[], void *data)
                                       strlen (client_get_title (c)))),
                    (env->make_string (env, client_get_appid (c),
                                       strlen (client_get_appid (c)))));
-    if (c->buffer_name == NULL)
-      {
-        c->buffer_name = emdwl_newbuffer (env, client_get_appid (c));
-      }
+    /* if (c->buffer_name == NULL) */
+    /*   { */
+    /*     c->buffer_name = emdwl_newbuffer (env, client_get_appid (c)); */
+    /*   } */
   }
   return env->make_integer (env, 1);
 }
@@ -326,31 +443,8 @@ Femdwl_list (emacs_env *env, long int nargs, emacs_value args[], void *data)
 static emacs_value
 Femdwl_open (emacs_env *env, long int nargs, emacs_value args[], void *data)
 {
-  /* printf("%s\n", extract_string(env, args[0])); */
-  /* system(extract_string(env, args[0])); */
-  Client *c;
-  int pid;
   const char *run_cmd = extract_string (env, args[0]);
-  const char *buffer_name = extract_string (env, args[1]);
-  wl_client_get_credentials (c->surface.xdg->client->client, &pid, NULL, NULL);
-  system (run_cmd);
-  printf ("Run emdwl_open \n");
-  wl_list_for_each (c, &fstack, flink)
-  {
-    printf ("%s %s", client_get_title (c), client_get_appid (c));
-    /* message(env, client_get_title(c)); */
-    emacs_message (env, "title: %S ,appid: %S", 2,
-                   (env->make_string (env, client_get_title (c),
-                                      strlen (client_get_title (c)))),
-                   (env->make_string (env, client_get_appid (c),
-                                      strlen (client_get_appid (c)))));
-    // client_get_appid(c));
-    if (c->buffer_name == NULL)
-      {
-        c->buffer_name = emdwl_newbuffer (env, client_get_appid (c));
-      }
-  }
-  return env->make_integer (env, 1);
+  return env->make_integer (env, emdwl_open_client (run_cmd));
 }
 static emacs_value
 Femdwl_resize (emacs_env *env, long int nargs, emacs_value args[], void *data)
@@ -363,11 +457,13 @@ Femdwl_resize (emacs_env *env, long int nargs, emacs_value args[], void *data)
   int y = extract_integer (env, args[1]);
   int width = extract_integer (env, args[2]);
   int height = extract_integer (env, args[3]);
-  const char *buffer_name = extract_string (env, args[4]);
+  int id = extract_integer (env, args[4]);
+  /* const char *buffer_name = extract_string (env, args[4]); */
 
   printf ("Run emdwl_resize \n");
-  printf ("%s\n", buffer_name);
-  c = emdwl_find_client (buffer_name);
+  printf ("id is:%d\n", id);
+  /* c = emdwl_find_client (buffer_name); */
+  c = emdwl_find_client_with_id (id);
   if (c == NULL)
     return env->make_integer (env, 0);
   else
@@ -387,10 +483,10 @@ static emacs_value
 Femdwl_close_client (emacs_env *env, long int nargs, emacs_value args[],
                      void *data)
 {
+  int id = extract_integer (env, args[0]);
   printf ("Run emdwl_close_client \n");
-  printf ("%s\n", extract_string (env, args[0]));
-  return env->make_integer (
-      env, emdwl_close_client (extract_string (env, args[0])));
+  printf ("%d\n", id);
+  return env->make_integer (env, emdwl_close_client (id));
 }
 
 static emacs_value
@@ -399,12 +495,14 @@ Femdwl_newtags_client (emacs_env *env, long int nargs, emacs_value args[],
 {
   Client *c;
   unsigned int tag = 0;
-  const char *buffer_name;
+  /* const char *buffer_name; */
+  int id = extract_integer (env, args[0]);
   printf ("Run emdwl_newtags_client \n");
-  buffer_name = extract_string (env, args[0]);
+  /* buffer_name = extract_string (env, args[0]); */
   tag = extract_integer (env, args[1]);
-  printf ("%s %d\n", buffer_name, tag);
-  c = emdwl_find_client (buffer_name);
+  printf ("%d--%d\n", id, tag);
+  /* c = emdwl_find_client (buffer_name); */
+  c = emdwl_find_client_with_id (id);
   if (c == NULL)
     {
       return env->make_integer (env, 0);
@@ -428,6 +526,7 @@ Femdwl_close (emacs_env *env, long int nargs, emacs_value args[], void *data)
 int
 emacs_module_init (struct emacs_runtime *ert)
 {
+
   emacs_env *env = ert->get_environment (ert);
 
   /* create a lambda (returns an emacs_value) */
@@ -466,6 +565,15 @@ emacs_module_init (struct emacs_runtime *ert)
       NULL /* user pointer of your choice (data param in Femdwl_test) */
   );
 
+  /* open a client  (returns an client_id) */
+  emacs_value fun_open = env->make_function (
+      env, 1,                /* min. number of arguments */
+      1,                     /* max. number of arguments */
+      Femdwl_open,           /* actual function pointer */
+      "Client list message", /* docstring */
+      NULL /* user pointer of your choice (data param in Femdwl_test) */
+  );
+
   /* resize a client (returns an emacs_value) */
   emacs_value fun_resize = env->make_function (
       env, 5,            /* min. number of arguments */
@@ -477,19 +585,19 @@ emacs_module_init (struct emacs_runtime *ert)
 
   /* close a client (returns an emacs_value) */
   emacs_value fun_close_client = env->make_function (
-      env, 1,                            /* min. number of arguments */
-      1,                                 /* max. number of arguments */
-      Femdwl_close_client,               /* actual function pointer */
-      "Close a client with buffer_name", /* docstring */
+      env, 1,                          /* min. number of arguments */
+      1,                               /* max. number of arguments */
+      Femdwl_close_client,             /* actual function pointer */
+      "Close a client with client_id", /* docstring */
       NULL /* user pointer of your choice (data param in Femdwl_test) */
   );
 
   /* close a client (returns an emacs_value) */
   emacs_value fun_newtags_client = env->make_function (
-      env, 2,                            /* min. number of arguments */
-      2,                                 /* max. number of arguments */
-      Femdwl_newtags_client,             /* actual function pointer */
-      "Close a client with buffer_name", /* docstring */
+      env, 2,                          /* min. number of arguments */
+      2,                               /* max. number of arguments */
+      Femdwl_newtags_client,           /* actual function pointer */
+      "Close a client with client_id", /* docstring */
       NULL /* user pointer of your choice (data param in Femdwl_test) */
   );
 
@@ -502,10 +610,12 @@ emacs_module_init (struct emacs_runtime *ert)
       NULL /* user pointer of your choice (data param in Femdwl_test) */
   );
 
+  /* Bind function */
   bind_function (env, "mymod-test", fun);
   bind_function (env, "emdwl-init", fun_init);
   bind_function (env, "emdwl-run", fun_emdwl_run);
   bind_function (env, "emdwl-list", fun_list);
+  bind_function (env, "emdwl-open", fun_open);
   bind_function (env, "emdwl-resize", fun_resize);
   bind_function (env, "emdwl-close-client", fun_close_client);
   bind_function (env, "emdwl-newtags-client", fun_newtags_client);

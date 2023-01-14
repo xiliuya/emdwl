@@ -163,8 +163,7 @@ typedef struct
   unsigned int tags;
   int isfloating, isurgent, isfullscreen;
   uint32_t resize; /* configure serial of a pending resize */
-  const char *buffer_name;
-  unsigned int pid;
+  unsigned int client_id; /* To find a client */
 } Client;
 
 typedef struct
@@ -368,6 +367,7 @@ static const char broken[] = "broken";
 static const char *cursor_image = "left_ptr";
 static pid_t child_pid = -1;
 static int locked;
+static int client_id = 1;
 static void *exclusive_focus;
 static struct wl_display *dpy;
 static struct wlr_backend *backend;
@@ -731,18 +731,23 @@ cleanup (void)
   wlr_xwayland_destroy (xwayland);
 #endif
   wl_display_destroy_clients (dpy);
+  printf ("clean up 1 \n");
   if (child_pid > 0)
     {
       kill (child_pid, SIGTERM);
       waitpid (child_pid, NULL, 0);
     }
+  printf ("clean up 2 \n");
   wlr_backend_destroy (backend);
+  printf ("clean up 3 \n");
   wlr_renderer_destroy (drw);
+  printf ("clean up 4 \n");
   wlr_allocator_destroy (alloc);
   wlr_xcursor_manager_destroy (cursor_mgr);
   wlr_cursor_destroy (cursor);
   wlr_output_layout_destroy (output_layout);
   wlr_seat_destroy (seat);
+  printf ("clean up 5 \n");
   wl_display_destroy (dpy);
 }
 
@@ -1619,7 +1624,6 @@ mapnotify (struct wl_listener *listener, void *data)
   Client *p, *w, *c = wl_container_of (listener, c, map);
   Monitor *m;
   int i;
-  int pid;
 
   /* Create scene tree for this client and its border */
   c->scene = wlr_scene_tree_create (layers[LyrTile]);
@@ -1686,9 +1690,12 @@ mapnotify (struct wl_listener *listener, void *data)
   else
     {
       applyrules (c);
-      wl_client_get_credentials (c->surface.xdg->client->client, &pid, NULL,
-                                 NULL);
-      c->pid = pid;
+
+      /* Save client_id */
+      if (c->client_id == 0)
+        c->client_id = client_id;
+
+      client_id++;
     }
   printstatus ();
 
@@ -1987,6 +1994,7 @@ printstatus (void)
         printf ("%s title %s\n", m->wlr_output->name, client_get_title (c));
         printf ("%s fullscreen %u\n", m->wlr_output->name, c->isfullscreen);
         printf ("%s floating %u\n", m->wlr_output->name, c->isfloating);
+        printf ("%s client_id %d\n", m->wlr_output->name, c->client_id);
         sel = c->tags;
       }
     else
