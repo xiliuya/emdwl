@@ -162,7 +162,7 @@ typedef struct
   unsigned int bw;
   unsigned int tags;
   int isfloating, isurgent, isfullscreen;
-  uint32_t resize; /* configure serial of a pending resize */
+  uint32_t resize;        /* configure serial of a pending resize */
   unsigned int client_id; /* To find a client */
 } Client;
 
@@ -513,11 +513,14 @@ applyrules (Client *c)
   if (!(title = client_get_title (c)))
     title = broken;
 
+  c->isfloating = 1;
+  newtags = 1 << 1;
   for (r = rules; r < END (rules); r++)
     {
       if ((!r->title || strstr (title, r->title))
           && (!r->id || strstr (appid, r->id)))
         {
+          newtags = 0;
           c->isfloating = r->isfloating;
           newtags |= r->tags;
           i = 0;
@@ -1692,7 +1695,7 @@ mapnotify (struct wl_listener *listener, void *data)
       applyrules (c);
 
       /* Save client_id */
-      if (c->client_id == 0)
+      if (c->client_id <= 0)
         c->client_id = client_id;
 
       client_id++;
@@ -1995,6 +1998,7 @@ printstatus (void)
         printf ("%s fullscreen %u\n", m->wlr_output->name, c->isfullscreen);
         printf ("%s floating %u\n", m->wlr_output->name, c->isfloating);
         printf ("%s client_id %d\n", m->wlr_output->name, c->client_id);
+        printf ("%s appid %s\n", m->wlr_output->name, client_get_appid (c));
         sel = c->tags;
       }
     else

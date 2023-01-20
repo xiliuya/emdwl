@@ -1,0 +1,66 @@
+* emdwl - dwl for emacs
+emdwl 是 =emacs= 的 =dwl= 绑定.
+可以完整的在 =emacs= 内启动一个 =dwl= .
+实现的功能:
+- 创建窗口
+- 移动窗口
+- resize 窗口
+- 显示/隐藏窗口
+  移动到另一个 =tag=
+
+** 构建
+与 =dwl= 相同: [[file:README.dwl.md][dwl_README]] .
+使用以下命令:
+#+begin_src shell :tangle no :shebang #!/bin/bash
+  make emdwl #构建 so
+  make test #执行测试使用 alacritty
+#+end_src
+
+** 编译依赖
+=emdwl= 需要以下包:
+- wlroots
+- wayland-protocols
+=emdwl-tool= 需要以下包:
+- pos-tip
+
+** 使用
+=emdwl= 可以直接通过调用 =emdwl-*= 进行使用.
+=emdwl-tool= 简单的将必要的功能进行了组合.
+通过 =./emdwl-start.sh= 启动一个 =emdwl= 窗口. 这将以 =daemon= 方式打开一个最小化配置的窗口.
+#+begin_src emacs-lisp :tangle yes
+  ;; 插入一个测试窗口到 buffer (alacritty)
+  (emdwl-tool-test-inline)
+  ;; 启用窗口跟随滚动
+  (emdwl-tool-add-advice)
+  ;; 打开一个窗口 "meld" 替换任意窗口启动命令
+  (emdwl-tool-open "meld")
+  ;; 插入一个窗口到当前 buffer
+  (emdwl-tool-add-inline-client &optional client-id)
+  ;; 调整窗口位置长宽
+  (emdwl-resize x y height width client-id)
+  ;; 关闭窗口,并清除已插入的窗口区域
+  (emdwl-tool-client-close client-id)
+  ;; 关闭并退出 emdwl
+  (emdwl-close)
+#+end_src
+
+**  Acknowledgements
+
+*emdwl* began by dwl began by extending the TinyWL example provided (CC0) by the sway/wlroots
+developers. This was made possible in many cases by looking at how sway
+accomplished something, then trying to do the same in as suckless a way as
+possible.
+
+Many thanks to suckless.org and the dwm developers and community for the
+inspiration, and to the various contributors to the project, including:
+
+- Alexander Courtis for the XWayland implementation
+- Guido Cella for the layer-shell protocol implementation, patch maintenance,
+  and for helping to keep the project running
+- Stivvo for output management and fullscreen support, and patch maintenance
+- dwl team for the dwl.
+
+[Wayland]: https://wayland.freedesktop.org/
+[wlroots]: https://gitlab.freedesktop.org/wlroots/wlroots/
+[dwl]: https://github.com/djpohly/dwl
+[patches page on dwl wiki]: https://github.com/djpohly/dwl/wiki/Patches
