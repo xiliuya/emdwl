@@ -1,6 +1,8 @@
 * emdwl - dwl for emacs
 emdwl 是 =emacs= 的 =dwl= 绑定.
+
 可以完整的在 =emacs= 内启动一个 =dwl= .
+
 实现的功能:
 - 创建窗口
 - 移动窗口
@@ -9,7 +11,8 @@ emdwl 是 =emacs= 的 =dwl= 绑定.
   移动到另一个 =tag=
 
 ** 构建
-与 =dwl= 相同: [[file:README.dwl.md][dwl_README]] .
+与 =dwl= 相同:  [[file:README.dwl.md][dwl_README]] .
+
 使用以下命令:
 #+begin_src shell :tangle no :shebang #!/bin/bash
   make emdwl #构建 so
@@ -25,7 +28,9 @@ emdwl 是 =emacs= 的 =dwl= 绑定.
 
 ** 使用
 =emdwl= 可以直接通过调用 =emdwl-*= 进行使用.
+
 =emdwl-tool= 简单的将必要的功能进行了组合.
+
 通过 =./emdwl-start.sh= 启动一个 =emdwl= 窗口. 这将以 =daemon= 方式打开一个最小化配置的窗口.
 #+begin_src emacs-lisp :tangle yes
   ;; 插入一个测试窗口到 buffer (alacritty)
@@ -60,7 +65,7 @@ inspiration, and to the various contributors to the project, including:
 - Stivvo for output management and fullscreen support, and patch maintenance
 - dwl team for the dwl.
 
-[Wayland]: https://wayland.freedesktop.org/
-[wlroots]: https://gitlab.freedesktop.org/wlroots/wlroots/
-[dwl]: https://github.com/djpohly/dwl
-[patches page on dwl wiki]: https://github.com/djpohly/dwl/wiki/Patches
++ [Wayland]: https://wayland.freedesktop.org/
++ [wlroots]: https://gitlab.freedesktop.org/wlroots/wlroots/
++ [dwl]: https://github.com/djpohly/dwl
++ [patches page on dwl wiki]: https://github.com/djpohly/dwl/wiki/Patches
