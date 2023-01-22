@@ -65,6 +65,7 @@ inspiration, and to the various contributors to the project, including:
 - Stivvo for output management and fullscreen support, and patch maintenance
 - dwl team for the dwl.
 
+link:
 + [Wayland]: https://wayland.freedesktop.org/
 + [wlroots]: https://gitlab.freedesktop.org/wlroots/wlroots/
 + [dwl]: https://github.com/djpohly/dwl

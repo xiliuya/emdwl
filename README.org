@@ -19,7 +19,7 @@ Functions achieved:
 
 ** Compilation
 
-Same as =dwl= : [[file: readme.dfl.md][dwl_README]].
+Same as =dwl= : [[file:README.dwl.md][dwl_README]].
 
 Use the following command:
 #+begin_src shell :tangle no :shebang #!/bin/bash
